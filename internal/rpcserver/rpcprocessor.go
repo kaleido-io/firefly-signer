@@ -40,8 +40,15 @@ func (s *rpcServer) processRPC(ctx context.Context, rpcReq *rpcbackend.RPCReques
 		return s.processEthAccounts(ctx, rpcReq)
 	case "eth_sendTransaction":
 		return s.processEthSendTransaction(ctx, rpcReq)
-	default:
+	case "disabled":
 		return s.backend.SyncRequest(ctx, rpcReq)
+	default:
+		// THIS IS A STUB
+		return &rpcbackend.RPCResponse{
+			JSONRpc: "2.0",
+			ID:      rpcReq.ID,
+			Result:  fftypes.JSONAnyPtr(`"0xfeedbeef"`),
+		}, nil
 	}
 }
 

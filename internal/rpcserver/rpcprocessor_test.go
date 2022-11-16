@@ -77,27 +77,27 @@ func TestPersonalAccountsFail(t *testing.T) {
 
 }
 
-func TestPassthrough(t *testing.T) {
+// func TestPassthrough(t *testing.T) {
 
-	_, s, done := newTestServer(t)
-	defer done()
+// 	_, s, done := newTestServer(t)
+// 	defer done()
 
-	bm := s.backend.(*rpcbackendmocks.Backend)
-	bm.On("SyncRequest", mock.Anything, mock.MatchedBy(func(rpcReq *rpcbackend.RPCRequest) bool {
-		return rpcReq.Method == "net_version"
-	})).Return(&rpcbackend.RPCResponse{
-		Result: fftypes.JSONAnyPtr(`"0x12345"`),
-	}, nil)
+// 	bm := s.backend.(*rpcbackendmocks.Backend)
+// 	bm.On("SyncRequest", mock.Anything, mock.MatchedBy(func(rpcReq *rpcbackend.RPCRequest) bool {
+// 		return rpcReq.Method == "net_version"
+// 	})).Return(&rpcbackend.RPCResponse{
+// 		Result: fftypes.JSONAnyPtr(`"0x12345"`),
+// 	}, nil)
 
-	rpcRes, err := s.processRPC(s.ctx, &rpcbackend.RPCRequest{
-		ID:     fftypes.JSONAnyPtr("1"),
-		Method: "net_version",
-	})
-	assert.NoError(t, err)
+// 	rpcRes, err := s.processRPC(s.ctx, &rpcbackend.RPCRequest{
+// 		ID:     fftypes.JSONAnyPtr("1"),
+// 		Method: "net_version",
+// 	})
+// 	assert.NoError(t, err)
 
-	assert.Equal(t, `"0x12345"`, rpcRes.Result.String())
+// 	assert.Equal(t, `"0x12345"`, rpcRes.Result.String())
 
-}
+// }
 
 func TestSignMissingParam(t *testing.T) {
 
