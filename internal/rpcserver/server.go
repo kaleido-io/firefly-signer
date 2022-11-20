@@ -24,11 +24,8 @@ import (
 	"github.com/hyperledger/firefly-common/pkg/config"
 	"github.com/hyperledger/firefly-common/pkg/ffresty"
 	"github.com/hyperledger/firefly-common/pkg/httpserver"
-	"github.com/hyperledger/firefly-common/pkg/i18n"
 	"github.com/hyperledger/firefly-signer/internal/signerconfig"
-	"github.com/hyperledger/firefly-signer/internal/signermsgs"
 	"github.com/hyperledger/firefly-signer/pkg/ethsigner"
-	"github.com/hyperledger/firefly-signer/pkg/ethtypes"
 	"github.com/hyperledger/firefly-signer/pkg/rpcbackend"
 )
 
@@ -81,12 +78,7 @@ func (s *rpcServer) runAPIServer() {
 
 func (s *rpcServer) Start() error {
 	if s.chainID < 0 {
-		var chainID ethtypes.HexInteger
-		err := s.backend.CallRPC(s.ctx, &chainID, "net_version")
-		if err != nil {
-			return i18n.WrapError(s.ctx, err, signermsgs.MsgQueryChainID)
-		}
-		s.chainID = chainID.BigInt().Int64()
+		s.chainID = 0
 	}
 
 	err := s.wallet.Initialize(s.ctx)
