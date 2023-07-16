@@ -9,4 +9,6 @@ fileWallet:
     passwordFileProperty: '{{ index .signing "password-file" }}'
 backend:
   chainId: 123456789
-
+server:
+  port: 8545
+  address: 0.0.0.0
