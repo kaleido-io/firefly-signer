@@ -12,4 +12,6 @@ RUN apt update -y \
  && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /ffsigner/firefly-signer /usr/bin/ffsigner
 
+ADD stub.config.yaml /etc/firefly/firefly.ffsigner.yaml
+
 ENTRYPOINT [ "/usr/bin/ffsigner" ]
