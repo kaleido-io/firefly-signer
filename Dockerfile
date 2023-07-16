@@ -3,7 +3,7 @@ ARG BUILD_VERSION
 ENV BUILD_VERSION=${BUILD_VERSION}
 ADD . /ffsigner
 WORKDIR /ffsigner
-RUN make
+RUN make build
 
 FROM debian:buster-slim
 WORKDIR /ffsigner
