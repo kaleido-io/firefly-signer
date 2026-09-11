@@ -347,13 +347,13 @@ func (rc *wsRPCClient) sendRPC(ctx context.Context, reqID string, rpcReq *RPCReq
 	if err == nil {
 		log.L(ctx).Debugf("RPC[%s] --> %s", reqID, rpcReq.Method)
 		if logrus.IsLevelEnabled(logrus.TraceLevel) {
-			log.L(ctx).Tracef("RPC[%s] INPUT: %s", reqID, jsonInput)
+			log.L(ctx).Tracef("RPC[%s] --> %s: INPUT: %s", reqID, rpcReq.Method, jsonInput)
 		}
 		err = rc.client.Send(ctx, jsonInput)
 	}
 	if err != nil {
 		rpcErr := NewRPCError(ctx, RPCCodeInternalError, signermsgs.MsgRPCRequestFailed, err)
-		log.L(ctx).Errorf("RPC[%s] <-- ERROR: %s", reqID, err)
+		log.L(ctx).Errorf("RPC[%s] <-- %s: ERROR: %s", reqID, rpcReq.Method, err)
 		return rpcErr
 	}
 	return nil
@@ -383,16 +383,16 @@ func (rc *wsRPCClient) waitResponse(ctx context.Context, result interface{}, req
 	case rpcRes = <-resChannel:
 	case <-ctx.Done():
 		rpcErr := NewRPCError(ctx, RPCCodeInternalError, signermsgs.MsgRequestCanceledContext, reqID)
-		log.L(ctx).Errorf("RPC[%s] <-- ERROR: %s", reqID, rpcErr.Error())
+		log.L(ctx).Errorf("RPC[%s] <-- %s: ERROR: %s", reqID, rpcReq.Method, rpcErr.Error())
 		recordRPCRequest(ctx, rpcReq.Method, statusCanceled, false, time.Since(start))
 		return rpcErr
 	}
 	if rpcRes.Error != nil && rpcRes.Error.Code != 0 {
-		log.L(ctx).Errorf("RPC[%s] <-- ERROR: %s", reqID, rpcRes.Message())
+		log.L(ctx).Errorf("RPC[%s] <-- %s: ERROR: %s", reqID, rpcReq.Method, rpcRes.Message())
 		recordRPCRequest(ctx, rpcReq.Method, statusFromRPCError(rpcRes.Error.Code), false, time.Since(start))
 		return rpcRes.Error
 	}
-	log.L(ctx).Infof("RPC[%s] <-- %s OK (%s)", reqID, rpcReq.Method, time.Since(start))
+	log.L(ctx).Infof("RPC[%s] <-- %s: OK (%s)", reqID, rpcReq.Method, time.Since(start))
 	if result != nil {
 		if err := unmarshalRPCResult(rpcRes.Result, &result); err != nil {
 			err = i18n.NewError(ctx, signermsgs.MsgResultParseFailed, result, err)
@@ -414,18 +414,18 @@ func (rc *wsRPCClient) handleSubscriptionNotification(ctx context.Context, rpcRe
 		_ = json.Unmarshal(rpcRes.Params.Bytes(), &subParams)
 	}
 	if len(subParams.Subscription) == 0 {
-		log.L(ctx).Warnf("RPC[%s] <-- Unable to extract subscription id from notification: %s", rpcRes.ID.AsString(), rpcRes.Params)
+		log.L(ctx).Warnf("RPC[%s] <-- %s: Unable to extract subscription id from notification: %s", rpcRes.ID.AsString(), rpcRes.Method, rpcRes.Params)
 		return
 	}
 
 	s := rc.getActiveSub(subParams.Subscription)
 	if s == nil {
-		log.L(ctx).Warnf("RPC[%s] <-- Notification for unknown subscription '%s'", rpcRes.ID.AsString(), subParams.Subscription)
+		log.L(ctx).Warnf("RPC[%s] <-- %s: Notification for unknown subscription '%s'", rpcRes.ID.AsString(), rpcRes.Method, subParams.Subscription)
 		return
 	}
 
 	// This is a notification that should match an active subscription
-	log.L(ctx).Debugf("RPC[%s] <-- Notification for subscription %s (serverId=%s)", rpcRes.ID.AsString(), s.localID, s.currentSubID)
+	log.L(ctx).Debugf("RPC[%s] <-- %s: Notification for subscription %s (serverId=%s)", rpcRes.ID.AsString(), rpcRes.Method, s.localID, s.currentSubID)
 	select {
 	case s.notifications <- &RPCSubscriptionNotification{
 		CurrentSubID: s.currentSubID,
@@ -433,7 +433,7 @@ func (rc *wsRPCClient) handleSubscriptionNotification(ctx context.Context, rpcRe
 	}:
 	case <-s.ctx.Done():
 		// The subscription has been unsubscribed, or we're closing
-		log.L(ctx).Warnf("RPC[%s] <-- Received subscription event after unsubscribe/close %s (serverId=%s)", rpcRes.ID.AsString(), s.localID, s.currentSubID)
+		log.L(ctx).Warnf("RPC[%s] <-- %s: Received subscription event after unsubscribe/close %s (serverId=%s)", rpcRes.ID.AsString(), rpcRes.Method, s.localID, s.currentSubID)
 	}
 }
 
@@ -441,7 +441,7 @@ func (rc *wsRPCClient) handleSubscriptionConfirm(ctx context.Context, inflightSu
 	resChl := inflightSub.newSubResponse
 	inflightSub.newSubResponse = nil // we only dispatch once (it's only new once, on reconnect it's old and there's nobody to tell if we fail)
 	if rpcRes.Error != nil && rpcRes.Error.Code != 0 {
-		log.L(ctx).Warnf("RPC[%s] <-- Error creating subscription %s: %s", rpcRes.ID.AsString(), inflightSub.localID, rpcRes.Params)
+		log.L(ctx).Warnf("RPC[%s] <-- %s: Error creating subscription %s: %s", rpcRes.ID.AsString(), rpcRes.Method, inflightSub.localID, rpcRes.Params)
 		if resChl != nil {
 			resChl <- rpcRes.Error
 		}
@@ -452,13 +452,13 @@ func (rc *wsRPCClient) handleSubscriptionConfirm(ctx context.Context, inflightSu
 		_ = json.Unmarshal(rpcRes.Result.Bytes(), &subscriptionID)
 	}
 	if len(subscriptionID) == 0 {
-		log.L(ctx).Warnf("RPC[%s] <-- Unable to extract subscription id from eth_subscribe response: %s", rpcRes.ID.AsString(), rpcRes.Params)
+		log.L(ctx).Warnf("RPC[%s] <-- %s: Unable to extract subscription id from eth_subscribe response: %s", rpcRes.ID.AsString(), rpcRes.Method, rpcRes.Params)
 		if resChl != nil {
 			resChl <- NewRPCError(ctx, RPCCodeInternalError, signermsgs.MsgSubscribeResponseInvalid)
 		}
 		return
 	}
-	log.L(ctx).Infof("Subscribed %s with server subscription ID '%s'", inflightSub.localID, subscriptionID)
+	log.L(ctx).Infof("RPC[%s] <-- %s: Subscribed %s with server subscription ID '%s'", rpcRes.ID.AsString(), rpcRes.Method, inflightSub.localID, subscriptionID)
 	rc.addActiveSub(inflightSub, subscriptionID)
 	// all was good, if someone is waiting to be told, notify them
 	if resChl != nil {
@@ -498,7 +498,7 @@ func (rc *wsRPCClient) receiveLoop(ctx context.Context) {
 			case inflightCall != nil:
 				rc.deliverCallResponse(ctx, inflightCall, &rpcRes)
 			default:
-				log.L(ctx).Warnf("RPC[%s] <-- Received unexpected RPC response: %+v", rpcRes.ID.AsString(), rpcRes)
+				log.L(ctx).Warnf("RPC[%s] <-- %s: Received unexpected RPC response: %+v", rpcRes.ID.AsString(), rpcRes.Method, rpcRes)
 			}
 		}
 	}

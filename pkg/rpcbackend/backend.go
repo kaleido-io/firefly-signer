@@ -367,10 +367,10 @@ func syncRequestTyped[T any](ctx context.Context, rc *RPCClient, rpcReq *RPCRequ
 		rpcTraceID = fmt.Sprintf("%s->%s", rpcReq.ID, rpcTraceID)
 	}
 
-	log.L(ctx).Debugf("RPC[%s] --> %s", rpcTraceID, rpcReq.Method)
+	log.L(ctx).Debugf("RPC[%s] --> %s", rpcTraceID, method)
 	if logrus.IsLevelEnabled(logrus.TraceLevel) {
 		jsonInput, _ := json.Marshal(rpcReq)
-		log.L(ctx).Tracef("RPC[%s] INPUT: %s", rpcTraceID, jsonInput)
+		log.L(ctx).Tracef("RPC[%s] --> %s: INPUT: %s", rpcTraceID, method, jsonInput)
 	}
 	rpcStartTime := time.Now()
 	res, httpErr := rc.client.R().
@@ -384,14 +384,14 @@ func syncRequestTyped[T any](ctx context.Context, rc *RPCClient, rpcReq *RPCRequ
 	rpcRes.ID = rpcReq.ID
 	if httpErr != nil {
 		httpErr = i18n.NewError(ctx, signermsgs.MsgRPCRequestFailed, httpErr)
-		log.L(ctx).Errorf("RPC[%s] <-- ERROR: %s", rpcTraceID, httpErr)
+		log.L(ctx).Errorf("RPC[%s] <-- %s: ERROR: %s", rpcTraceID, method, httpErr)
 		rpcRes.Error = &RPCError{Code: int64(RPCCodeInternalError), Message: httpErr.Error()}
 		record(statusTransportError)
 		return rpcRes, 0, httpErr
 	}
 	if logrus.IsLevelEnabled(logrus.TraceLevel) {
 		jsonOutput, _ := json.Marshal(rpcRes)
-		log.L(ctx).Tracef("RPC[%s] OUTPUT: %s", rpcTraceID, jsonOutput)
+		log.L(ctx).Tracef("RPC[%s] <-- %s: OUTPUT: %s", rpcTraceID, method, jsonOutput)
 	}
 	// JSON/RPC allows errors to be returned with a 200 status code, as well as other status codes
 	if res.IsError() || rpcRes.Error != nil && rpcRes.Error.Code != 0 {
@@ -403,11 +403,11 @@ func syncRequestTyped[T any](ctx context.Context, rc *RPCClient, rpcReq *RPCRequ
 			errLog = string(res.Body())
 			rpcMsg = i18n.NewError(ctx, signermsgs.MsgRPCRequestFailed, res.Status()).Error()
 		}
-		log.L(ctx).Errorf("RPC[%s] <-- [%d]: %s", rpcTraceID, res.StatusCode(), errLog)
+		log.L(ctx).Errorf("RPC[%s] <-- %s: [%d]: %s", rpcTraceID, method, res.StatusCode(), errLog)
 		record(statusFromHTTPCode(res.StatusCode()))
 		return rpcRes, res.StatusCode(), errors.New(rpcMsg)
 	}
-	log.L(ctx).Infof("RPC[%s] <-- %s [%d] OK (%.2fms)", rpcTraceID, rpcReq.Method, res.StatusCode(), float64(time.Since(rpcStartTime))/float64(time.Millisecond))
+	log.L(ctx).Infof("RPC[%s] <-- %s: [%d] OK (%.2fms)", rpcTraceID, method, res.StatusCode(), float64(time.Since(rpcStartTime))/float64(time.Millisecond))
 	record(statusFromHTTPCode(res.StatusCode()))
 	return rpcRes, res.StatusCode(), nil
 }
